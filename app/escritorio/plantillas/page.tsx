@@ -428,7 +428,7 @@ export default function GestorPlantillas() {
             <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200/60 sticky top-10">
               <div className="flex items-center gap-3 mb-8"><div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs">01</div><h2 className="text-xs font-black text-slate-800 uppercase tracking-widest italic">Cabecera</h2></div>
               <div className="space-y-2 mb-8">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest italic">Operación</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest italic">operación</label>
                 <input type="text" value={conceptoPlantilla} onChange={(e) => setConceptoPlantilla(e.target.value)} placeholder="Ej: Pago de Tributos" className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-slate-700 transition-all lowercase shadow-inner" />
               </div>
               <div className="space-y-4">
