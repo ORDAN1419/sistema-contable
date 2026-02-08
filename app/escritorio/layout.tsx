@@ -5,7 +5,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { 
   Loader2, LayoutDashboard, BookOpen, 
   Settings, LogOut, PenTool, Book, BarChart3,
-  Library // <--- Nuevo icono para "Ver Libro Diario"
+  Library,
+  PieChart // <--- Icono para Balance General
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -39,13 +40,14 @@ export default function EscritorioLayout({ children }: { children: React.ReactNo
 
   /**
    * MENU ACTUALIZADO
-   * Se añade "Ver Libro Diario" para separar la consulta de la creación
+   * Se añade "Balance General" en la ruta /escritorio/balance-general
    */
   const menuItems = [
     { name: 'Inicio', icon: LayoutDashboard, path: '/escritorio' },
     { name: 'Crear Asiento', icon: Book, path: '/escritorio/libro-diario' },
-    { name: 'Ver Libro Diario', icon: Library, path: '/escritorio/libro-diario/ver' }, // <--- NUEVA RUTA
-    { name: 'Balance de comprobación', icon: BarChart3, path: '/escritorio/balance' },
+    { name: 'Ver Libro Diario', icon: Library, path: '/escritorio/libro-diario/ver' },
+    { name: 'Balance General', icon: PieChart, path: '/escritorio/balance-general' }, // <--- NUEVA RUTA
+    { name: 'B. Comprobación', icon: BarChart3, path: '/escritorio/balance' },
     { name: 'Plantillas', icon: PenTool, path: '/escritorio/plantillas' },
     { name: 'Plan Contable', icon: BookOpen, path: '/escritorio/plan-contable' },
   ]
@@ -84,8 +86,8 @@ export default function EscritorioLayout({ children }: { children: React.ReactNo
         {/* BOTÓN DE CONFIGURACIÓN */}
         <div className="space-y-1">
            <Link 
-              href="/escritorio/ajustes"
-              className={`flex items-center gap-3 p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${pathname === '/escritorio/ajustes' ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+             href="/escritorio/ajustes"
+             className={`flex items-center gap-3 p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${pathname === '/escritorio/ajustes' ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
            >
              <Settings size={18} />
              Ajustes
