@@ -124,8 +124,6 @@ export default function GestorPlantillas() {
     }
   }
 
-  // --- LÓGICA DEL ASISTENTE Y CREACIÓN DE CUENTAS ---
-
   const abrirMisCuentas = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
@@ -163,9 +161,39 @@ export default function GestorPlantillas() {
     setShowCrearCuenta(true)
   }
 
+  /**
+   * CORRECCIÓN: Lógica de Niveles y Tipo Letra
+   */
   const guardarNuevaAsistente = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !nuevaCuenta.nombre) return
+
+    // 1. Cálculo de Nivel según tu lógica:
+    // 2 dígitos (10) -> Nivel 1
+    // 3 dígitos (104) -> Nivel 2
+    // 5 dígitos (10411) -> Nivel 3
+    // 6+ dígitos (104111) -> Nivel 4
+    let nivelCalculado = 1;
+    const len = nuevaCuenta.codigo.length;
+    if (len === 2) nivelCalculado = 1;
+    else if (len === 3) nivelCalculado = 2;
+    else if (len === 5) nivelCalculado = 3;
+    else if (len >= 6) nivelCalculado = 4;
+
+    // 2. Determinación de Naturaleza Contable (tipo_letra)
+    const primerDigito = nuevaCuenta.codigo[0];
+    const mapeoNaturaleza: Record<string, string> = {
+      '1': 'activo',
+      '2': 'activo',
+      '3': 'activo',
+      '4': 'pasivo',
+      '5': 'patrimonio',
+      '6': 'gasto (nat)',
+      '7': 'ingreso',
+      '8': 'gasto (fun)',
+      '9': 'gasto (fun)'
+    };
+    const tipoLetra = mapeoNaturaleza[primerDigito] || 'OTRO';
 
     const { error } = await supabase.from('mis_cuentas').insert([{
       codigo: nuevaCuenta.codigo,
@@ -174,7 +202,9 @@ export default function GestorPlantillas() {
       padre_codigo: nuevaCuenta.padre_codigo,
       es_registro: nuevaCuenta.es_registro,
       user_id: user.id,
-      tipo: nuevaCuenta.codigo.startsWith('1') ? 1 : 2
+      nivel: nivelCalculado,
+      tipo_letra: tipoLetra,
+      tipo: (primerDigito === '1' || primerDigito === '2' || primerDigito === '3') ? 1 : 2
     }])
 
     if (!error) {
@@ -183,6 +213,8 @@ export default function GestorPlantillas() {
       }
       setShowCrearCuenta(false)
       abrirMisCuentas()
+    } else {
+      alert("Error: " + error.message)
     }
   }
 
@@ -212,13 +244,9 @@ export default function GestorPlantillas() {
     const nt = { ...textoBusqueda }; delete nt[index]; setTextoBusqueda(nt)
   }
 
-  /**
-   * CORRECCIÓN: Se añade 'id' al select para solucionar el error de key
-   */
   const buscarCuentas = async (query: string, index: number) => {
     setFilaActiva(index); setTextoBusqueda({ ...textoBusqueda, [index]: query })
     if (query.trim().length < 1) return setSugerencias([])
-    // Se añade 'id' explícitamente para la key del map
     const { data } = await supabase.from('mis_cuentas')
       .select('id, codigo, nombre, tipo')
       .eq('es_registro', true)
@@ -363,7 +391,6 @@ export default function GestorPlantillas() {
                 listaMisCuentas
                 .filter(c => (busquedaInterna.length > 0 || c.nivel === 1 || expandidos[c.padre_codigo || '']) && (c.nombre.toLowerCase().includes(busquedaInterna.toLowerCase()) || c.codigo.includes(busquedaInterna)))
                 .map((cuenta) => {
-                  const tieneHijos = listaMisCuentas.some(h => h.padre_codigo === cuenta.codigo);
                   const estaAbierto = expandidos[cuenta.codigo];
                   return (
                     <div key={cuenta.id} style={{ marginLeft: `${(cuenta.nivel - 1) * 16}px` }}
@@ -428,7 +455,7 @@ export default function GestorPlantillas() {
             <section className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200/60 sticky top-10">
               <div className="flex items-center gap-3 mb-8"><div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-xs">01</div><h2 className="text-xs font-black text-slate-800 uppercase tracking-widest italic">Cabecera</h2></div>
               <div className="space-y-2 mb-8">
-                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest italic">operaciónn</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest italic">operación</label>
                 <input type="text" value={conceptoPlantilla} onChange={(e) => setConceptoPlantilla(e.target.value)} placeholder="Ej: Pago de Tributos" className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl outline-none font-bold text-slate-700 transition-all lowercase shadow-inner" />
               </div>
               <div className="space-y-4">

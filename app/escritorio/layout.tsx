@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
 import { 
   Loader2, LayoutDashboard, BookOpen, 
-  Settings, LogOut, PenTool, Book, BarChart3 // <--- Icono BarChart3 añadido
+  Settings, LogOut, PenTool, Book, BarChart3,
+  Library // <--- Nuevo icono para "Ver Libro Diario"
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -38,12 +39,13 @@ export default function EscritorioLayout({ children }: { children: React.ReactNo
 
   /**
    * MENU ACTUALIZADO
-   * Incluye acceso directo al Balance y al Libro Diario
+   * Se añade "Ver Libro Diario" para separar la consulta de la creación
    */
   const menuItems = [
     { name: 'Inicio', icon: LayoutDashboard, path: '/escritorio' },
-    { name: 'Asiento contable', icon: Book, path: '/escritorio/libro-diario' },
-    { name: 'Balance General', icon: BarChart3, path: '/escritorio/balance' }, // <--- NUEVA RUTA AL BALANCE
+    { name: 'Crear Asiento', icon: Book, path: '/escritorio/libro-diario' },
+    { name: 'Ver Libro Diario', icon: Library, path: '/escritorio/libro-diario/ver' }, // <--- NUEVA RUTA
+    { name: 'Balance de comprobación', icon: BarChart3, path: '/escritorio/balance' },
     { name: 'Plantillas', icon: PenTool, path: '/escritorio/plantillas' },
     { name: 'Plan Contable', icon: BookOpen, path: '/escritorio/plan-contable' },
   ]
@@ -79,7 +81,7 @@ export default function EscritorioLayout({ children }: { children: React.ReactNo
           })}
         </nav>
 
-        {/* BOTÓN DE CONFIGURACIÓN (OPCIONAL) */}
+        {/* BOTÓN DE CONFIGURACIÓN */}
         <div className="space-y-1">
            <Link 
               href="/escritorio/ajustes"
