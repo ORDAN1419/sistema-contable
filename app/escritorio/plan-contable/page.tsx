@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { 
   Search, Loader2, Plus, Trash2, X, AlertCircle, Zap, Check, Trash, 
-  ChevronRight, ChevronDown, PlusCircle, Settings2, Folder, FolderOpen
+  ChevronRight, ChevronDown, PlusCircle, Settings2, Folder, FolderOpen,
+  Copy, DatabaseZap, Sparkles
 } from 'lucide-react'
 
 /**
@@ -28,6 +29,7 @@ interface CuentaContable {
 export default function PlanMaestroMultiusuario() {
   // --- estados principales del sistema ---
   const [loading, setLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
   const [cuentas, setCuentas] = useState<CuentaContable[]>([])
   const [busqueda, setBusqueda] = useState('')
   
@@ -93,6 +95,54 @@ export default function PlanMaestroMultiusuario() {
       console.error("error fatal al cargar datos de supabase:", err)
     } finally {
       setTimeout(() => setLoading(false), 800)
+    }
+  }
+
+  /**
+   * FUNCIÓN DE IMPORTACIÓN: Copia del plan_contable (semilla) a mis_cuentas
+   */
+  const exportarPlanSemilla = async () => {
+    setIsExporting(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: semilla, error: errorSemilla } = await supabase
+        .from('plan_contable')
+        .select('*')
+
+      if (errorSemilla) throw errorSemilla
+
+      if (semilla && semilla.length > 0) {
+        const nuevasCuentas = semilla.map(item => {
+          // Lógica de detección de niveles y padres basada en longitud
+          const nivel = item.codigo.length <= 2 ? 1 : (item.codigo.length <= 3 ? 2 : 3);
+          let padre = null;
+          if (item.codigo.length === 2) padre = item.codigo.substring(0, 1);
+          if (item.codigo.length === 3) padre = item.codigo.substring(0, 2);
+          if (item.codigo.length >= 5) padre = item.codigo.substring(0, 3);
+          
+          return {
+            user_id: user.id,
+            codigo: item.codigo,
+            nombre: item.nombre.toLowerCase(),
+            tipo_letra: item.tipo_letra || 'activo',
+            descripcion: item.descripcion || '',
+            clase_cuenta: item.clase_cuenta,
+            nivel: nivel,
+            es_registro: true, // <--- SE MANTIENE COMO TRUE SEGÚN PEDIDO
+            padre_codigo: padre
+          }
+        })
+
+        const { error: errorInsert } = await supabase.from('mis_cuentas').insert(nuevasCuentas)
+        if (errorInsert) throw errorInsert
+        await inicializarSistema()
+      }
+    } catch (err) {
+      console.error("error en exportación:", err)
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -229,6 +279,7 @@ export default function PlanMaestroMultiusuario() {
     if (!user) return
     
     const { data, error } = await supabase.from('mis_cuentas').insert([{
+      user_id: user.id,
       codigo: nuevo.codigo,
       nombre: nuevo.nombre.toLowerCase(),
       descripcion: nuevo.descripcion?.toLowerCase() || '',
@@ -236,8 +287,7 @@ export default function PlanMaestroMultiusuario() {
       tipo_letra: nuevo.tipo_letra,
       nivel: nuevo.nivel,
       es_registro: nuevo.es_registro,
-      padre_codigo: nuevo.padre_codigo || null,
-      user_id: user.id 
+      padre_codigo: nuevo.padre_codigo || null
     }]).select()
 
     if (!error && data) {
@@ -253,7 +303,9 @@ export default function PlanMaestroMultiusuario() {
     }
   }
 
-  // --- FUNCIÓN RESTAURADA: confirmarBorrado ---
+  /**
+   * confirmarBorrado
+   */
   const confirmarBorrado = (cuenta: CuentaContable) => {
     setModalBorrar({ 
       open: true, id: cuenta.id || null, nombre: cuenta.nombre, status: 'confirm',
@@ -315,15 +367,6 @@ export default function PlanMaestroMultiusuario() {
     return (estilos[t] || 'bg-white border-l-slate-200') + ' border-l-4'
   }
 
-  const getColorByTipo = (tipo: number | string | null) => {
-    const t = tipo?.toString() || '1';
-    const colors: Record<string, string> = {
-      '1': 'text-blue-600', '2': 'text-red-600', '3': 'text-emerald-600', 
-      '4': 'text-amber-600', '5': 'text-slate-600', '7': 'text-indigo-600'
-    }
-    return colors[t] || 'text-slate-400'
-  }
-
   const filtrados = cuentas.filter(c => 
     esVisible(c) && (
       c.nombre?.toLowerCase().includes(busqueda.toLowerCase()) || 
@@ -343,79 +386,108 @@ export default function PlanMaestroMultiusuario() {
       <div className="max-w-7xl mx-auto space-y-10">
         <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-slate-100 pb-10">
           <div className="space-y-1">
-            <h1 className="text-5xl font-black text-slate-900 tracking-tighter italic lowercase">plan maestro</h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1 italic">jerarquía inteligente</p>
+            <h1 className="text-xl font-bold tracking-tight text-slate-700 lowercase first-letter:uppercase">plan contable</h1>
+            <p className="text-xs font-medium text-slate-400 italic">gestión jerárquica de cuentas</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto">
-            <div className="relative flex-1 md:w-80">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input onChange={(e) => setBusqueda(e.target.value)} value={busqueda} placeholder="buscar cuenta..." className="w-full pl-12 pr-6 py-4 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-indigo-500 shadow-sm lowercase" />
-            </div>
-            <button onClick={() => { setNuevo(estadoInicial); setIsModalOpen(true); }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase hover:bg-indigo-600 transition-all shadow-xl flex items-center gap-2 italic">
-              <Plus size={18} /> nueva cuenta raíz
-            </button>
+            {cuentas.length > 0 && (
+              <>
+                <div className="relative flex-1 md:w-80">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input onChange={(e) => setBusqueda(e.target.value)} value={busqueda} placeholder="buscar cuenta..." className="w-full pl-12 pr-6 py-4 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-indigo-500 shadow-sm lowercase" />
+                </div>
+                <button onClick={() => { setNuevo(estadoInicial); setIsModalOpen(true); }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase hover:bg-indigo-600 transition-all shadow-xl flex items-center gap-2 italic">
+                  <Plus size={18} /> nueva cuenta
+                </button>
+              </>
+            )}
           </div>
         </header>
 
-        <div className="bg-white border-2 border-slate-100 rounded-[2.5rem] shadow-2xl shadow-slate-200/40 overflow-hidden pb-10">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-900 text-white font-black italic">
-                <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] lowercase">jerarquía / código</th>
-                <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] lowercase">nombre detalle</th>
-                <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] text-center lowercase">estado (persistente)</th>
-                <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] text-center w-24 lowercase">acción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtrados.map((c) => {
-                const tieneHijos = cuentas.some(h => h.padre_codigo === c.codigo);
-                const estaExpandido = expandidos[c.codigo];
-                return (
-                  <tr key={c.id} className={`${getFilaEstilo(c.tipo, c.es_registro)} transition-all group border-b border-white/10 animate-in fade-in duration-300`}>
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3" style={{ marginLeft: `${((c.nivel || 1) - 1) * 24}px` }}>
-                         <div className="w-6">
-                           {!c.es_registro && (
-                             <button onClick={() => toggleExpandir(c.codigo)} className="p-1 hover:bg-black/5 rounded-md transition-colors">
-                               {estaExpandido ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        {/* --- ESTADO VACÍO / IMPORTACIÓN --- */}
+        {cuentas.length === 0 ? (
+          <div className="bg-white border-4 border-dashed border-slate-100 rounded-[3rem] p-20 flex flex-col items-center text-center space-y-8 animate-in fade-in duration-700">
+            <div className="w-24 h-24 bg-indigo-50 text-indigo-500 rounded-[2rem] flex items-center justify-center rotate-3">
+              <DatabaseZap size={48} />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-black text-slate-800 lowercase italic tracking-tighter">tu catálogo está vacío</h2>
+              <p className="text-sm font-bold text-slate-400 max-w-sm mx-auto italic">no hemos detectado cuentas en tu perfil. ¿deseas importar el plan contable semilla del sistema?</p>
+            </div>
+            <button 
+              onClick={exportarPlanSemilla}
+              disabled={isExporting}
+              className="bg-indigo-600 text-white px-12 py-5 rounded-[2rem] font-black text-xs uppercase hover:bg-slate-900 transition-all shadow-2xl shadow-indigo-100 flex items-center gap-3 disabled:opacity-50 active:scale-95 italic"
+            >
+              {isExporting ? <Loader2 className="animate-spin" size={20} /> : <Copy size={20} />}
+              {isExporting ? 'importando datos...' : 'importar plan semilla'}
+            </button>
+          </div>
+        ) : (
+          /* --- TABLA ORIGINAL REDONDEADA --- */
+          <div className="bg-white border-2 border-slate-100 rounded-[3rem] shadow-2xl shadow-slate-200/40 overflow-hidden pb-10">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-900 text-white italic">
+                  <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] lowercase">jerarquía / código</th>
+                  <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] lowercase">nombre detalle</th>
+                  <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] text-center lowercase">estado</th>
+                  <th className="px-8 py-6 text-[10px] uppercase tracking-[0.2em] text-center w-24 lowercase">acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtrados.map((c) => {
+                  const estaExpandido = expandidos[c.codigo];
+                  return (
+                    <tr key={c.id} className={`${getFilaEstilo(c.tipo, c.es_registro)} transition-all group animate-in fade-in duration-300`}>
+                      <td className="px-8 py-5">
+                        <div className="flex items-center gap-3" style={{ marginLeft: `${((c.nivel || 1) - 1) * 24}px` }}>
+                           <div className="w-6">
+                             {!c.es_registro && (
+                               <button onClick={() => toggleExpandir(c.codigo)} className="p-1 hover:bg-black/5 rounded-md transition-colors text-slate-300">
+                                 {estaExpandido ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                               </button>
+                             )}
+                           </div>
+                           <div className="relative flex items-center gap-2">
+                             <span className={`px-3 py-1.5 rounded-xl border font-mono text-[11px] ${c.es_registro ? 'bg-white font-black text-slate-900 shadow-sm border-slate-200' : 'bg-slate-900 text-white font-bold border-slate-800'}`}>
+                               {c.codigo}
+                             </span>
+                             {/* BOTÓN PLUS PEGADO AL CÓDIGO */}
+                             <button onClick={() => prepararSubcuenta(c)} className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white shadow-sm active:scale-95">
+                               <PlusCircle size={12} strokeWidth={4} />
                              </button>
-                           )}
-                         </div>
-                         <div className="relative flex items-center gap-2">
-                           <span className={`px-3 py-1.5 rounded-xl border font-mono text-[11px] ${c.es_registro ? 'bg-white font-black text-slate-900 shadow-sm border-slate-200' : 'bg-slate-900 text-white font-bold border-slate-800'}`}>
-                             {c.codigo}
-                           </span>
-                           <button onClick={() => prepararSubcuenta(c)} className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-indigo-50 text-white rounded-lg hover:bg-indigo-600 shadow-lg active:scale-95"><PlusCircle size={12} strokeWidth={4} /></button>
-                         </div>
-                      </div>
-                    </td>
-                    <td className={`px-8 py-5 text-[13px] lowercase italic ${!c.es_registro ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>
-                      <div className="flex items-center gap-2">
-                        {!c.es_registro ? (estaExpandido ? <FolderOpen size={14} className="text-slate-400" /> : <Folder size={14} className="text-slate-400" />) : <Zap size={10} className="text-indigo-500 fill-current" />}
-                        {c.nombre}
-                      </div>
-                    </td>
-                    <td className="px-8 py-5 text-center">
-                      <button onClick={() => toggleEstadoRegistro(c)} className={`text-[8px] font-black uppercase px-3 py-1 rounded-full shadow-sm flex items-center gap-2 mx-auto italic ${c.es_registro ? 'bg-white text-slate-900 border border-slate-200' : 'bg-slate-900 text-white'}`}>
-                         {c.es_registro ? 'registro' : 'título'} <Settings2 size={10} className={c.es_registro ? 'text-slate-300' : 'text-slate-500'} />
-                      </button>
-                    </td>
-                    <td className="px-8 py-5 text-center">
-                      <button onClick={() => confirmarBorrado(c)} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                           </div>
+                        </div>
+                      </td>
+                      <td className={`px-8 py-5 text-[13px] lowercase italic ${!c.es_registro ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>
+                        <div className="flex items-center">
+                          {!c.es_registro ? <Folder size={14} className="mr-2 text-slate-300" /> : <Zap size={10} className="mr-2 text-indigo-400 fill-current" />}
+                          <span className="shrink-0">{c.nombre}</span>
+                          <div className="flex-1 mx-4 border-b-2 border-slate-100 border-dotted mb-1"></div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        <button onClick={() => toggleEstadoRegistro(c)} className={`text-[8px] font-black uppercase px-3 py-1 rounded-full shadow-sm flex items-center gap-2 mx-auto italic ${c.es_registro ? 'bg-white text-slate-900 border border-slate-200' : 'bg-slate-900 text-white'}`}>
+                           {c.es_registro ? 'registro' : 'título'} <Settings2 size={10} />
+                        </button>
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        <button onClick={() => confirmarBorrado(c)} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* --- modal para agregar nuevas cuentas --- */}
+      {/* --- MODAL PARA AGREGAR CUENTAS (CON DESCRIPCIÓN) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] p-10 max-w-xl w-full shadow-2xl relative border border-slate-100 animate-in zoom-in duration-200">
+          <div className="bg-white rounded-[3rem] p-10 max-w-xl w-full shadow-2xl relative border border-slate-100 animate-in zoom-in duration-200">
             {showSuccess ? (
               <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in">
                 <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4"><Check size={40} /></div>
@@ -428,7 +500,8 @@ export default function PlanMaestroMultiusuario() {
                   <button onClick={cerrarYLimpiarModal} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24}/></button>
                 </div>
                 <form onSubmit={handleAgregar} className="space-y-5">
-                  <div className="bg-indigo-50 p-4 rounded-2xl flex items-center gap-3 text-indigo-600">
+                  {errorForm && <div className="p-4 bg-rose-50 text-rose-500 text-[10px] font-black rounded-2xl flex items-center gap-2 italic"> <AlertCircle size={14}/> {errorForm}</div>}
+                  <div className="bg-indigo-50 p-4 rounded-[1.5rem] flex items-center gap-3 text-indigo-600">
                     <Zap size={20} fill="currentColor" />
                     <p className="text-[10px] font-black uppercase tracking-tight italic">padre detectado: {nuevo.padre_codigo || 'raíz'}</p>
                   </div>
@@ -443,18 +516,19 @@ export default function PlanMaestroMultiusuario() {
                     </div>
                     <div className="col-span-2 space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-2 italic">nombre detalle</label>
-                      <input required value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none shadow-inner lowercase" />
+                      <input required value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none shadow-inner lowercase italic" />
                     </div>
+                    {/* CAMPO DE DESCRIPCIÓN OPCIONAL INCLUIDO */}
                     <div className="col-span-2 space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400 ml-2 italic">descripción adicional</label>
-                      <textarea value={nuevo.descripcion || ''} onChange={e => setNuevo({...nuevo, descripcion: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none h-24 resize-none shadow-inner lowercase" />
+                      <label className="text-[10px] font-black uppercase text-slate-400 ml-2 italic">descripción adicional (opcional)</label>
+                      <textarea value={nuevo.descripcion || ''} onChange={e => setNuevo({...nuevo, descripcion: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none h-24 resize-none shadow-inner lowercase italic" placeholder="..." />
                     </div>
                     <div className="col-span-1 flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100/50">
                        <input type="checkbox" checked={nuevo.es_registro} onChange={e => setNuevo({...nuevo, es_registro: e.target.checked})} className="w-5 h-5 accent-indigo-600" />
                        <label className="text-[10px] font-black uppercase text-slate-600 italic lowercase">¿es registro?</label>
                     </div>
                   </div>
-                  <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-600 transition-all active:scale-95 italic">guardar en multinivel</button>
+                  <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-600 transition-all active:scale-95 italic">guardar en catálogo</button>
                 </form>
               </>
             )}
@@ -462,23 +536,20 @@ export default function PlanMaestroMultiusuario() {
         </div>
       )}
 
-      {/* --- modal de borrado seguro detallado --- */}
+      {/* MODAL DE BORRADO SEGURO */}
       {modalBorrar.open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl text-center border border-slate-100">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl text-center border border-slate-100">
             {modalBorrar.status === 'success' ? (
-              <div className="flex flex-col items-center py-6 animate-in zoom-in">
-                <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><Check size={40} /></div>
-                <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter italic lowercase">¡eliminado con éxito!</h2>
-              </div>
+              <div className="flex flex-col items-center py-6 animate-in zoom-in text-rose-500 font-black italic lowercase">¡eliminado con éxito!</div>
             ) : (
               <>
-                <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6"><Trash size={32} /></div>
+                <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6"><Trash size={32} /></div>
                 <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-2 italic lowercase">¿estás totalmente seguro?</h2>
                 <p className="text-sm font-bold text-slate-400 mb-8 italic">vas a eliminar la cuenta <span className="text-slate-900 font-black">"{modalBorrar.nombre}"</span> de forma permanente.</p>
                 <div className="flex gap-4">
-                  <button onClick={() => setModalBorrar({ open: false, id: null, nombre: '', status: 'confirm' })} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all italic">cancelar</button>
-                  <button onClick={ejecutarEliminacion} className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600 shadow-lg shadow-red-100 transition-all italic">sí, eliminar</button>
+                  <button onClick={() => setModalBorrar({ open: false, id: null, nombre: '', status: 'confirm' })} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase italic">cancelar</button>
+                  <button onClick={ejecutarEliminacion} className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-red-100 transition-all italic hover:bg-rose-600">sí, eliminar</button>
                 </div>
               </>
             )}
