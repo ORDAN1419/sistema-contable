@@ -1,8 +1,8 @@
 "use client"
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { 
-  Search, Loader2, Plus, Trash2, X, AlertCircle, Zap, Check, Trash, 
+import {
+  Search, Loader2, Plus, Trash2, X, AlertCircle, Zap, Check, Trash,
   ChevronRight, ChevronDown, PlusCircle, Settings2, Folder, FolderOpen,
   Copy, DatabaseZap, Sparkles
 } from 'lucide-react'
@@ -32,42 +32,42 @@ export default function PlanMaestroMultiusuario() {
   const [isExporting, setIsExporting] = useState(false)
   const [cuentas, setCuentas] = useState<CuentaContable[]>([])
   const [busqueda, setBusqueda] = useState('')
-  
+
   // --- estado del acordeón para jerarquía visual ---
   const [expandidos, setExpandidos] = useState<Record<string, boolean>>({})
-  
+
   // --- estados para gestión de modales (detallados y robustos) ---
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [showSuccess, setShowSuccess] = useState(false) 
+  const [showSuccess, setShowSuccess] = useState(false)
   const [modalBorrar, setModalBorrar] = useState<{
-    open: boolean, 
-    id: string | null, 
-    nombre: string, 
+    open: boolean,
+    id: string | null,
+    nombre: string,
     status: 'confirm' | 'success',
     codigo_borrar?: string,
     padre_codigo?: string | null
   }>({
     open: false, id: null, nombre: '', status: 'confirm'
   })
-  
+
   // --- estado inicial para nuevas cuentas ---
-  const estadoInicial: Omit<CuentaContable, 'id'> = { 
-    codigo: '', 
-    nombre: '', 
-    tipo: 1, 
-    descripcion: '', 
+  const estadoInicial: Omit<CuentaContable, 'id'> = {
+    codigo: '',
+    nombre: '',
+    tipo: 1,
+    descripcion: '',
     tipo_letra: 'activo',
     nivel: 1,
     es_registro: true,
-    padre_codigo: '' 
+    padre_codigo: ''
   }
-  
+
   const [nuevo, setNuevo] = useState(estadoInicial)
   const [errorForm, setErrorForm] = useState('')
 
   // --- efectos iniciales de sincronización con el servidor ---
-  useEffect(() => { 
-    inicializarSistema() 
+  useEffect(() => {
+    inicializarSistema()
   }, [])
 
   /**
@@ -121,7 +121,7 @@ export default function PlanMaestroMultiusuario() {
           if (item.codigo.length === 2) padre = item.codigo.substring(0, 1);
           if (item.codigo.length === 3) padre = item.codigo.substring(0, 2);
           if (item.codigo.length >= 5) padre = item.codigo.substring(0, 3);
-          
+
           return {
             user_id: user.id,
             codigo: item.codigo,
@@ -160,12 +160,12 @@ export default function PlanMaestroMultiusuario() {
     if (!cod) return { tipo: 1, letra: 'activo' };
     const primer = cod.charAt(0)
     const mapping: Record<string, { tipo: number; letra: string }> = {
-      '1': { tipo: 1, letra: 'activo' }, 
-      '2': { tipo: 1, letra: 'activo' }, 
-      '3': { tipo: 1, letra: 'activo' }, 
-      '4': { tipo: 2, letra: 'pasivo' }, 
-      '5': { tipo: 2, letra: 'patrimonio' }, 
-      '6': { tipo: 4, letra: 'gasto (nat)' }, 
+      '1': { tipo: 1, letra: 'activo' },
+      '2': { tipo: 1, letra: 'activo' },
+      '3': { tipo: 1, letra: 'activo' },
+      '4': { tipo: 2, letra: 'pasivo' },
+      '5': { tipo: 2, letra: 'patrimonio' },
+      '6': { tipo: 4, letra: 'gasto (nat)' },
       '7': { tipo: 3, letra: 'ingreso' },
       '8': { tipo: 5, letra: 'gasto (fun)' },
       '9': { tipo: 5, letra: 'gasto (fun)' }
@@ -190,12 +190,12 @@ export default function PlanMaestroMultiusuario() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      setCuentas(prev => prev.map(c => 
+      setCuentas(prev => prev.map(c =>
         c.id === cuenta.id ? { ...c, es_registro: nuevoEstado } : c
       ));
     } catch (err) {
       console.error("error de persistencia:", err);
-      await inicializarSistema(); 
+      await inicializarSistema();
     }
   }
 
@@ -205,7 +205,7 @@ export default function PlanMaestroMultiusuario() {
   const prepararSubcuenta = (padre: CuentaContable) => {
     const hijos = cuentas.filter(c => c.padre_codigo === padre.codigo);
     let nuevoCodigo = "";
-    
+
     if (padre.codigo.length === 3) {
       let correlativo = 1;
       if (hijos.length > 0) {
@@ -231,9 +231,9 @@ export default function PlanMaestroMultiusuario() {
   }
 
   const cerrarYLimpiarModal = () => {
-    setNuevo(estadoInicial); 
-    setErrorForm(''); 
-    setIsModalOpen(false); 
+    setNuevo(estadoInicial);
+    setErrorForm('');
+    setIsModalOpen(false);
     setShowSuccess(false)
   }
 
@@ -256,8 +256,8 @@ export default function PlanMaestroMultiusuario() {
       nivel_detectado = 1;
     }
 
-    setNuevo({ 
-      ...nuevo, 
+    setNuevo({
+      ...nuevo,
       codigo: val,
       tipo: info.tipo,
       tipo_letra: info.letra,
@@ -272,12 +272,12 @@ export default function PlanMaestroMultiusuario() {
   const handleAgregar = async (e: React.FormEvent) => {
     e.preventDefault()
     if (cuentas.some(c => c.codigo === nuevo.codigo)) {
-      setErrorForm(`el código ${nuevo.codigo} ya existe.`); 
+      setErrorForm(`el código ${nuevo.codigo} ya existe.`);
       return
     }
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    
+
     const { data, error } = await supabase.from('mis_cuentas').insert([{
       user_id: user.id,
       codigo: nuevo.codigo,
@@ -307,7 +307,7 @@ export default function PlanMaestroMultiusuario() {
    * confirmarBorrado
    */
   const confirmarBorrado = (cuenta: CuentaContable) => {
-    setModalBorrar({ 
+    setModalBorrar({
       open: true, id: cuenta.id || null, nombre: cuenta.nombre, status: 'confirm',
       codigo_borrar: cuenta.codigo, padre_codigo: cuenta.padre_codigo
     })
@@ -327,7 +327,7 @@ export default function PlanMaestroMultiusuario() {
 
       if (!error) {
         if (modalBorrar.padre_codigo) {
-          const hijosRestantes = cuentas.filter(c => 
+          const hijosRestantes = cuentas.filter(c =>
             c.padre_codigo === modalBorrar.padre_codigo && c.id !== modalBorrar.id
           );
           if (hijosRestantes.length === 0) {
@@ -339,8 +339,8 @@ export default function PlanMaestroMultiusuario() {
         }
         await inicializarSistema()
         setModalBorrar(prev => ({ ...prev, status: 'success' }))
-        setTimeout(() => setModalBorrar({ 
-          open: false, id: null, nombre: '', status: 'confirm' 
+        setTimeout(() => setModalBorrar({
+          open: false, id: null, nombre: '', status: 'confirm'
         }), 1500)
       }
     } catch (err) {
@@ -349,7 +349,7 @@ export default function PlanMaestroMultiusuario() {
   }
 
   const esVisible = (cuenta: CuentaContable) => {
-    if (busqueda.length > 0) return true; 
+    if (busqueda.length > 0) return true;
     if (cuenta.codigo.length <= 2) return true;
     return expandidos[cuenta.padre_codigo || ""] === true;
   }
@@ -367,9 +367,9 @@ export default function PlanMaestroMultiusuario() {
     return (estilos[t] || 'bg-white border-l-slate-200') + ' border-l-4'
   }
 
-  const filtrados = cuentas.filter(c => 
+  const filtrados = cuentas.filter(c =>
     esVisible(c) && (
-      c.nombre?.toLowerCase().includes(busqueda.toLowerCase()) || 
+      c.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
       c.codigo?.includes(busqueda)
     )
   )
@@ -386,8 +386,9 @@ export default function PlanMaestroMultiusuario() {
       <div className="max-w-7xl mx-auto space-y-10">
         <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-slate-100 pb-10">
           <div className="space-y-1">
-            <h1 className="text-xl font-bold tracking-tight text-slate-700 lowercase first-letter:uppercase">plan contable</h1>
-            <p className="text-xs font-medium text-slate-400 italic">gestión jerárquica de cuentas</p>
+            <div className="flex items-center gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest"><Settings2 size={18} /> gestión jerárquica de cuentas</div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter italic">Plan Contable</h1>
+
           </div>
           <div className="flex gap-4 w-full md:w-auto">
             {cuentas.length > 0 && (
@@ -414,7 +415,7 @@ export default function PlanMaestroMultiusuario() {
               <h2 className="text-3xl font-black text-slate-800 lowercase italic tracking-tighter">tu catálogo está vacío</h2>
               <p className="text-sm font-bold text-slate-400 max-w-sm mx-auto italic">no hemos detectado cuentas en tu perfil. ¿deseas importar el plan contable semilla del sistema?</p>
             </div>
-            <button 
+            <button
               onClick={exportarPlanSemilla}
               disabled={isExporting}
               className="bg-indigo-600 text-white px-12 py-5 rounded-[2rem] font-black text-xs uppercase hover:bg-slate-900 transition-all shadow-2xl shadow-indigo-100 flex items-center gap-3 disabled:opacity-50 active:scale-95 italic"
@@ -442,22 +443,22 @@ export default function PlanMaestroMultiusuario() {
                     <tr key={c.id} className={`${getFilaEstilo(c.tipo, c.es_registro)} transition-all group animate-in fade-in duration-300`}>
                       <td className="px-8 py-5">
                         <div className="flex items-center gap-3" style={{ marginLeft: `${((c.nivel || 1) - 1) * 24}px` }}>
-                           <div className="w-6">
-                             {!c.es_registro && (
-                               <button onClick={() => toggleExpandir(c.codigo)} className="p-1 hover:bg-black/5 rounded-md transition-colors text-slate-300">
-                                 {estaExpandido ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                               </button>
-                             )}
-                           </div>
-                           <div className="relative flex items-center gap-2">
-                             <span className={`px-3 py-1.5 rounded-xl border font-mono text-[11px] ${c.es_registro ? 'bg-white font-black text-slate-900 shadow-sm border-slate-200' : 'bg-slate-900 text-white font-bold border-slate-800'}`}>
-                               {c.codigo}
-                             </span>
-                             {/* BOTÓN PLUS PEGADO AL CÓDIGO */}
-                             <button onClick={() => prepararSubcuenta(c)} className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white shadow-sm active:scale-95">
-                               <PlusCircle size={12} strokeWidth={4} />
-                             </button>
-                           </div>
+                          <div className="w-6">
+                            {!c.es_registro && (
+                              <button onClick={() => toggleExpandir(c.codigo)} className="p-1 hover:bg-black/5 rounded-md transition-colors text-slate-300">
+                                {estaExpandido ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
+                            )}
+                          </div>
+                          <div className="relative flex items-center gap-2">
+                            <span className={`px-3 py-1.5 rounded-xl border font-mono text-[11px] ${c.es_registro ? 'bg-white font-black text-slate-900 shadow-sm border-slate-200' : 'bg-slate-900 text-white font-bold border-slate-800'}`}>
+                              {c.codigo}
+                            </span>
+                            {/* BOTÓN PLUS PEGADO AL CÓDIGO */}
+                            <button onClick={() => prepararSubcuenta(c)} className="opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white shadow-sm active:scale-95">
+                              <PlusCircle size={12} strokeWidth={4} />
+                            </button>
+                          </div>
                         </div>
                       </td>
                       <td className={`px-8 py-5 text-[13px] lowercase italic ${!c.es_registro ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}>
@@ -469,7 +470,7 @@ export default function PlanMaestroMultiusuario() {
                       </td>
                       <td className="px-8 py-5 text-center">
                         <button onClick={() => toggleEstadoRegistro(c)} className={`text-[8px] font-black uppercase px-3 py-1 rounded-full shadow-sm flex items-center gap-2 mx-auto italic ${c.es_registro ? 'bg-white text-slate-900 border border-slate-200' : 'bg-slate-900 text-white'}`}>
-                           {c.es_registro ? 'registro' : 'título'} <Settings2 size={10} />
+                          {c.es_registro ? 'cuenta' : 'carpeta'} <Settings2 size={10} />
                         </button>
                       </td>
                       <td className="px-8 py-5 text-center">
@@ -497,10 +498,10 @@ export default function PlanMaestroMultiusuario() {
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-black text-slate-900 tracking-tighter italic lowercase">configurar cuenta</h2>
-                  <button onClick={cerrarYLimpiarModal} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24}/></button>
+                  <button onClick={cerrarYLimpiarModal} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X size={24} /></button>
                 </div>
                 <form onSubmit={handleAgregar} className="space-y-5">
-                  {errorForm && <div className="p-4 bg-rose-50 text-rose-500 text-[10px] font-black rounded-2xl flex items-center gap-2 italic"> <AlertCircle size={14}/> {errorForm}</div>}
+                  {errorForm && <div className="p-4 bg-rose-50 text-rose-500 text-[10px] font-black rounded-2xl flex items-center gap-2 italic"> <AlertCircle size={14} /> {errorForm}</div>}
                   <div className="bg-indigo-50 p-4 rounded-[1.5rem] flex items-center gap-3 text-indigo-600">
                     <Zap size={20} fill="currentColor" />
                     <p className="text-[10px] font-black uppercase tracking-tight italic">padre detectado: {nuevo.padre_codigo || 'raíz'}</p>
@@ -516,16 +517,16 @@ export default function PlanMaestroMultiusuario() {
                     </div>
                     <div className="col-span-2 space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-2 italic">nombre detalle</label>
-                      <input required value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none shadow-inner lowercase italic" />
+                      <input required value={nuevo.nombre} onChange={e => setNuevo({ ...nuevo, nombre: e.target.value })} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none shadow-inner lowercase italic" />
                     </div>
                     {/* CAMPO DE DESCRIPCIÓN OPCIONAL INCLUIDO */}
                     <div className="col-span-2 space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-400 ml-2 italic">descripción adicional (opcional)</label>
-                      <textarea value={nuevo.descripcion || ''} onChange={e => setNuevo({...nuevo, descripcion: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none h-24 resize-none shadow-inner lowercase italic" placeholder="..." />
+                      <textarea value={nuevo.descripcion || ''} onChange={e => setNuevo({ ...nuevo, descripcion: e.target.value })} className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold border-2 border-transparent focus:border-indigo-500 outline-none h-24 resize-none shadow-inner lowercase italic" placeholder="..." />
                     </div>
                     <div className="col-span-1 flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100/50">
-                       <input type="checkbox" checked={nuevo.es_registro} onChange={e => setNuevo({...nuevo, es_registro: e.target.checked})} className="w-5 h-5 accent-indigo-600" />
-                       <label className="text-[10px] font-black uppercase text-slate-600 italic lowercase">¿es registro?</label>
+                      <input type="checkbox" checked={nuevo.es_registro} onChange={e => setNuevo({ ...nuevo, es_registro: e.target.checked })} className="w-5 h-5 accent-indigo-600" />
+                      <label className="text-[10px] font-black uppercase text-slate-600 italic lowercase">¿es registro?</label>
                     </div>
                   </div>
                   <button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-600 transition-all active:scale-95 italic">guardar en catálogo</button>
